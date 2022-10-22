@@ -1,84 +1,39 @@
+#!/usr/bin/env python3
+
+from argparse import ArgumentParser
 from bs4 import BeautifulSoup
+from datetime import datetime
 from pathlib import Path
-import requests
-import os
-import datetime
+from requests import get
+from urllib.parse import urljoin, urlparse, unquote_plus
 
-from urllib.parse import urlparse, unquote
-from os.path import basename
+A2B2_URL = 'https://a2b2.org/'
 
+argparser = ArgumentParser('save_images.py')
+argparser.add_argument(
+    'outpath',
+    metavar='PATH',
+    help='output directory',
+    default=Path(datetime.now().strftime('%Y.%d.%m, %H:%M:%S')),
+    type=Path,
+    nargs='?'
+)
 
-def url_to_name(url):
-    return basename(unquote(urlparse(url).path))
+args = argparser.parse_args()
+soup = BeautifulSoup(get(A2B2_URL).text, 'html.parser')
+outpath = args.outpath
 
+print(f'Downloading in {outpath}')
+outpath.mkdir(parents=True, exist_ok=True)
+section = soup.find('section', id='block-system-main')
+urls = [urlparse(unquote_plus(img['src'])) for img in section.find_all('img')]
+paths = [Path(u.path) for u in urls]
 
-# GENERATE OUTPUT FOLDER NAME
-def gen_folder_name():
-    
-    # get time now
-    time = datetime.datetime.now()
-    folder_name = time.strftime("%d.%m.%Y, %Hh%Mm%Ss")
-
-    return folder_name
-
-
-# CREATE OUTPUT FOLDER
-def folder_create(folder_name):
-    
-    # folder creation
-    folder_path = Path(__file__).parent.resolve() / folder_name
-    os.mkdir(folder_path)
-
-    return Path(folder_path)
-
-
-# DOWNLOAD ALL IMAGES FROM THAT URL
-def download_images(urls):
-
-    headers = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:100.0) Gecko/20100101 Firefox/100.0'}
-    count = 0
- 
-    # print total images found in URL
-    # print(f"Total {len(images)} Image Found!")
-    
-    for url in urls:
-        
-        r = requests.get(url, headers=headers)
-        if r.ok:
-            yield r.content
-
-
-def save_images(images, path):
-
-    for name, bytes in images:
-        print(path / name)
-        with open(path / name, "wb+") as f:
-            f.write(bytes)
-
-
-# MAIN FUNCTION START
-def main():
-
-    # content of URL
-    r = requests.get("https://a2b2.org/")
-
-    if r.ok:
-
-        # Parse HTML Code
-        soup = BeautifulSoup(r.text, 'html.parser')
-    
-        # find all images in URL
-        urls = [i["src"] for i in soup.findAll('img')]
-        names = [url_to_name(u) for u in urls]
-    
-        # Call folder create function
-        folder_name = gen_folder_name()
-        path = folder_create(folder_name)
-        
-        # Download images
-        images = zip(names, download_images(urls)) 
-        save_images(images, path)
- 
-
-# CALL MAIN FUNCTION
-main()
+for path in paths:
+    name = path.name
+    url = urljoin(A2B2_URL, str(path))
+    print(f'Downloading {name}... ', end='')
+    bytes = get(url, headers={'User-Agent': '(X11)'}).content
+    with open(outpath / name, "wb+") as f:
+        f.write(bytes)
+        print(f'ok!')
