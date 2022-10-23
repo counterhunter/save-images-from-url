@@ -14,7 +14,7 @@ argparser.add_argument(
     'outpath',
     metavar='PATH',
     help='output directory',
-    default=Path(datetime.now().strftime('%Y.%d.%m, %H:%M:%S')),
+    default=Path(datetime.now().strftime('%Y.%d.%m %H-%M-%S')),
     type=Path,
     nargs='?'
 )
@@ -26,14 +26,13 @@ outpath = args.outpath
 print(f'Downloading in {outpath}')
 outpath.mkdir(parents=True, exist_ok=True)
 section = soup.find('section', id='block-system-main')
-urls = [urlparse(unquote_plus(img['src'])) for img in section.find_all('img')]
-paths = [Path(u.path) for u in urls]
+urls = [unquote_plus(img['src']) for img in section.find_all('img')]
 
-for path in paths:
-    name = path.name
-    url = urljoin(A2B2_URL, str(path))
+for url in urls:
+    name = Path(urlparse(url).path).name # yeap
+    url = urljoin(A2B2_URL, url)
     print(f'Downloading {name}... ', end='')
     bytes = get(url, headers={'User-Agent': '(X11)'}).content
-    with open(outpath / name, "wb+") as f:
+    with open(outpath / name, 'wb') as f:
         f.write(bytes)
         print(f'ok!')
